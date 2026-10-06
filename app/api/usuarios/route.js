@@ -17,7 +17,11 @@ export async function GET(req) {
 export async function POST(req) {
   const a = await exigirAdmin(req);
   if (a.error) return err(a.error, a.status);
-  const { nombre, email, password, rol } = await req.json();
+  const body = await req.json();
+  const nombre = (body.nombre || '').trim();
+  const email = (body.email || '').trim().toLowerCase();
+  const password = (body.password || '').trim();
+  const rol = body.rol;
   if (!email || !password || password.length < 8) return err('Completá mail y una contraseña de al menos 8 caracteres');
   if (!['admin', 'lector'].includes(rol)) return err('Rol inválido');
   const { data, error } = await a.sb.auth.admin.createUser({ email, password, email_confirm: true });
@@ -30,7 +34,9 @@ export async function POST(req) {
 export async function PATCH(req) {
   const a = await exigirAdmin(req);
   if (a.error) return err(a.error, a.status);
-  const { id, rol, password } = await req.json();
+  const body = await req.json();
+  const { id, rol } = body;
+  const password = (body.password || '').trim();
   if (!id) return err('Falta el usuario');
   if (rol) {
     if (!['admin', 'lector'].includes(rol)) return err('Rol inválido');
