@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase, traerTodo, api } from '../lib/supabase';
 import { fecha } from '../lib/formato';
+import { descargarExcel } from '../lib/excel';
 import Acceso from '../components/Acceso';
 import Filtros, { FILTROS_INICIALES, filtrar } from '../components/Filtros';
 import Dashboard from '../components/Dashboard';
@@ -10,9 +11,10 @@ import SinAsignar from '../components/SinAsignar';
 import Cargar from '../components/Cargar';
 import Usuarios from '../components/Usuarios';
 import Configuracion from '../components/Configuracion';
+import { IC, avColor, iniciales } from '../components/ui';
 
 export default function Inicio() {
-  const [estado, setEstado] = useState('cargando'); // cargando | setup | login | app | error
+  const [estado, setEstado] = useState('cargando');
   const [errorInicio, setErrorInicio] = useState('');
   const [sesion, setSesion] = useState(null);
   const [perfil, setPerfil] = useState(null);
@@ -32,7 +34,7 @@ export default function Inicio() {
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSesion(s);
-      if (!s) setEstado((x) => (x === 'setup' ? x : 'login'));
+      if (!s) setEstado((x) => (x === 'setup' || x === 'cargando' || x === 'error' ? x : 'login'));
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -42,13 +44,15 @@ export default function Inicio() {
     supabase.from('perfiles').select('*').eq('id', sesion.user.id).single().then(({ data }) => setPerfil(data));
   }, [sesion]);
 
-  if (estado === 'cargando') return <div className="center muted">Cargando…</div>;
+  if (estado === 'cargando') return <div className="center"><div className="skel" style={{ width: 360, height: 220 }} /></div>;
   if (estado === 'error') return <div className="center"><div className="err">{errorInicio}</div></div>;
   if (estado === 'setup' || estado === 'login')
     return <Acceso modo={estado} onListo={() => setEstado('app')} onSetupHecho={() => setEstado('login')} />;
-  if (!sesion || !perfil) return <div className="center muted">Cargando…</div>;
+  if (!sesion || !perfil) return <div className="center"><div className="skel" style={{ width: 360, height: 220 }} /></div>;
   return <App perfil={perfil} />;
 }
+
+const TITULOS = { dash: 'Dashboard', cli: 'Clientes', sin: 'Sin asignar', carga: 'Cargar semana', usr: 'Usuarios', cfg: 'Configuración' };
 
 function App({ perfil }) {
   const admin = perfil.rol === 'admin';
@@ -64,6 +68,15 @@ function App({ perfil }) {
   const [S, setS] = useState(FILTROS_INICIALES);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [oscuro, setOscuro] = useState(false);
+
+  useEffect(() => { setOscuro(document.documentElement.dataset.theme === 'dark'); }, []);
+  const cambiarTema = () => {
+    const n = !oscuro;
+    setOscuro(n);
+    document.documentElement.dataset.theme = n ? 'dark' : 'light';
+    try { localStorage.setItem('tema', n ? 'dark' : 'light'); } catch (e) {}
+  };
 
   const cargarBase = useCallback(async () => {
     try {
@@ -97,10 +110,8 @@ function App({ perfil }) {
     try {
       const f = await traerTodo(() => supabase.from('informe_filas').select('*').eq('informe_id', selId).order('saldo_total', { ascending: false }));
       setFilas(f);
-      if (prev) {
-        const p = await traerTodo(() => supabase.from('informe_filas').select('*').eq('informe_id', prev.id));
-        setFilasPrev(p);
-      } else setFilasPrev([]);
+      if (prev) setFilasPrev(await traerTodo(() => supabase.from('informe_filas').select('*').eq('informe_id', prev.id)));
+      else setFilasPrev([]);
     } catch (e) {
       setError('Error cargando el informe: ' + e.message);
     }
@@ -108,7 +119,6 @@ function App({ perfil }) {
   }, [selId, prev?.id]);
 
   useEffect(() => { cargarFilas(); }, [cargarFilas]);
-
   const recargar = useCallback(async () => { await cargarBase(); await cargarFilas(); }, [cargarBase, cargarFilas]);
 
   const canje = useMemo(() => new Set(clientes.filter((c) => c.canje).map((c) => c.codigo)), [clientes]);
@@ -116,69 +126,93 @@ function App({ perfil }) {
   const asignadasPrev = useMemo(() => filasPrev.filter((f) => f.vendedor), [filasPrev]);
   const sinAsignar = useMemo(() => filas.filter((f) => !f.vendedor), [filas]);
 
+  // Vendedores para el filtro: los de la tabla + los que aparezcan en el informe
+  const listaVend = useMemo(() => {
+    const m = new Map(vendedores.map((v) => [v.nombre, v.empresa]));
+    asignadas.forEach((r) => !m.has(r.vendedor) && m.set(r.vendedor, r.empresa));
+    const enUso = new Set(asignadas.concat(asignadasPrev).map((r) => r.vendedor));
+    return [...m.entries()].filter(([n]) => enUso.has(n)).map(([nombre, empresa]) => ({ nombre, empresa })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [vendedores, asignadas, asignadasPrev]);
+
   const vista = filtrar(asignadas, S, canje);
   const vistaPrev = prev ? filtrar(asignadasPrev, S, canje) : null;
 
-  const tabs = [
-    ['dash', 'Dashboard'],
-    ['cli', 'Clientes'],
-    ...(admin
-      ? [['sin', `Sin asignar (${sinAsignar.length})`], ['carga', 'Cargar semana'], ['usr', 'Usuarios'], ['cfg', 'Configuración']]
-      : []),
+  const nav = [
+    ['dash', IC.dash], ['cli', IC.cli],
+    ...(admin ? [['sin', IC.sin], ['carga', IC.carga], ['usr', IC.usr], ['cfg', IC.cfg]] : []),
   ];
   const conFiltros = tab === 'dash' || tab === 'cli';
+  const nombre = perfil.nombre || perfil.email;
 
   return (
-    <>
-      <header>
-        <div className="logo">VOLTAJE <b>·</b> ILUMA &nbsp;<span>Cuentas Corrientes</span></div>
-        <nav>
-          {tabs.map(([k, l]) => (
-            <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
+    <div className="app">
+      <aside>
+        <div className="brand">
+          <img className="v" src="/logos/voltaje-blanco.png" alt="Voltaje" />
+          <div className="x">junto a <img className="i" src="/logos/iluma-blanco.png" alt="Iluma" /></div>
+        </div>
+        <div className="nav">
+          {nav.map(([k, ic]) => (
+            <a key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+              {ic}{TITULOS[k]}
+              {k === 'sin' && sinAsignar.length > 0 && <span className="badge">{sinAsignar.length}</span>}
+            </a>
           ))}
-        </nav>
-        <div className="user">
-          {perfil.nombre || perfil.email} · {admin ? 'Admin' : 'Solo lectura'}
+        </div>
+        <div className="me">
+          <div className="av" style={{ background: avColor(nombre) }}>{iniciales(nombre)}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="n" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{nombre}</div>
+            <div className="r">{admin ? 'Administrador' : 'Solo lectura'}</div>
+          </div>
           <button onClick={() => supabase.auth.signOut()}>Salir</button>
         </div>
-      </header>
-      {conFiltros && informes.length > 0 && (
-        <Filtros S={S} setS={setS} informes={informes} selId={selId} setSelId={setSelId} filas={asignadas} />
-      )}
+      </aside>
       <main>
+        <div className="top">
+          <div>
+            <h1>{TITULOS[tab]}</h1>
+            {sel && <div className="sub">Cuentas corrientes · semana <b>{fecha(sel.fecha_corte)}</b>{prev ? ` · comparado con ${fecha(prev.fecha_corte)}` : ''}</div>}
+          </div>
+          <div className="r">
+            {informes.length > 0 && (
+              <select value={selId || ''} onChange={(e) => setSelId(Number(e.target.value))}>
+                {informes.map((i) => <option key={i.id} value={i.id}>Semana {fecha(i.fecha_corte)}</option>)}
+              </select>
+            )}
+            <button className="ibtn" onClick={cambiarTema} title="Modo claro / oscuro">{oscuro ? '☀️' : '🌙'}</button>
+            {sel && <button className="btn" onClick={() => descargarExcel(vista, canje, sel.fecha_corte)}>⬇ Excel</button>}
+          </div>
+        </div>
         {error && <div className="err">{error}</div>}
-        {informes.length === 0 && tab !== 'carga' && tab !== 'usr' && tab !== 'cfg' && (
-          <div className="card">Todavía no hay informes cargados. {admin ? 'Andá a "Cargar semana".' : ''}</div>
+        {conFiltros && informes.length > 0 && <Filtros S={S} setS={setS} listaVend={listaVend} />}
+
+        {informes.length === 0 && !['carga', 'usr', 'cfg'].includes(tab) && (
+          <div className="card mt">Todavía no hay informes cargados. {admin ? 'Andá a "Cargar semana".' : ''}</div>
         )}
-        {informes.length > 0 && cargando && conFiltros && <div className="muted">Cargando informe…</div>}
-        {!cargando && sel && tab === 'dash' && (
-          <Dashboard
-            vista={vista} vistaPrev={vistaPrev} asignadas={asignadas} asignadasPrev={asignadasPrev}
-            S={S} setS={setS} canje={canje} hist={hist} sel={sel} prev={prev}
-          />
+        {informes.length > 0 && cargando && conFiltros && (
+          <div className="grid k5 mt">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skel" style={{ height: 150 }} />)}</div>
         )}
-        {!cargando && sel && tab === 'cli' && (
-          <Clientes
-            vista={vista} admin={admin} canje={canje} vendedores={vendedores} clientes={clientes}
-            sel={sel} recargar={recargar}
-          />
-        )}
-        {admin && tab === 'sin' && sel && (
-          <SinAsignar filas={sinAsignar} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />
-        )}
-        {admin && tab === 'carga' && (
-          <Cargar informes={informes} recargar={recargar} alTerminar={() => { setTab('dash'); }} setSelId={setSelId} perfil={perfil} />
-        )}
-        {admin && tab === 'usr' && <Usuarios perfil={perfil} />}
-        {admin && tab === 'cfg' && (
-          <Configuracion
-            vendedores={vendedores} clientes={clientes} config={config} informes={informes} recargar={recargar}
-          />
-        )}
-        <div className="muted" style={{ fontSize: 11, marginTop: 20 }}>
-          {sel ? `Informe del ${fecha(sel.fecha_corte)}${prev ? ` · comparado con ${fecha(prev.fecha_corte)}` : ''}` : ''}
+        <div className="mt">
+          {!cargando && sel && tab === 'dash' && (
+            <Dashboard vista={vista} vistaPrev={vistaPrev} asignadas={asignadas} asignadasPrev={asignadasPrev}
+              S={S} setS={setS} canje={canje} hist={hist} prev={prev} />
+          )}
+          {!cargando && sel && tab === 'cli' && (
+            <Clientes vista={vista} admin={admin} canje={canje} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />
+          )}
+          {admin && tab === 'sin' && sel && (
+            <SinAsignar filas={sinAsignar} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />
+          )}
+          {admin && tab === 'carga' && (
+            <Cargar informes={informes} recargar={recargar} alTerminar={() => setTab('dash')} setSelId={setSelId} perfil={perfil} />
+          )}
+          {admin && tab === 'usr' && <Usuarios perfil={perfil} />}
+          {admin && tab === 'cfg' && (
+            <Configuracion vendedores={vendedores} clientes={clientes} config={config} informes={informes} recargar={recargar} />
+          )}
         </div>
       </main>
-    </>
+    </div>
   );
 }

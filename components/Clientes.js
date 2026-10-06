@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { F, M, venc, sumar } from '../lib/formato';
-import { descargarExcel } from '../lib/excel';
 import Modal from './Modal';
+import { Avatar, LogoEmp } from './ui';
 
 const COLS = [
   ['codigo', 'Código'], ['razon_social', 'Razón social'], ['vendedor', 'Vendedor'], ['empresa', 'Empresa'],
@@ -65,9 +65,7 @@ export default function Clientes({ vista, admin, canje, vendedores, clientes, se
 
   return (
     <div className="card">
-      <h3>Clientes <small>{vista.length} clientes · saldo {M(tot.saldo)} · vencido {M(tot.venc)}</small>
-        <button className="btn" onClick={() => descargarExcel(filas, canje, sel.fecha_corte)}>⬇ Descargar Excel</button>
-      </h3>
+      <h3>Clientes <small>{vista.length} clientes · saldo {M(tot.saldo)} · vencido {M(tot.venc)}</small></h3>
       {error && <div className="err">{error}</div>}
       <div className="tw">
         <table>
@@ -84,15 +82,15 @@ export default function Clientes({ vista, admin, canje, vendedores, clientes, se
               const cj = canje.has(r.codigo);
               return (
                 <tr key={r.id} className={cj ? 'canje' : ''}>
-                  <td>{r.codigo}</td>
-                  <td className="rs" title={r.razon_social}>{r.razon_social} {r.editado && <span className="tag e" title="Editado a mano">EDITADO</span>}</td>
-                  <td>{r.vendedor}</td>
-                  <td><span className={'tag ' + (r.empresa === 'voltaje' ? 'v' : 'i')}>{(r.empresa || '').toUpperCase()}</span></td>
-                  <td className="n">{F(r.saldo_total)}</td>
+                  <td className="muted">{r.codigo}</td>
+                  <td className="rs" title={r.razon_social}><b>{r.razon_social}</b> {r.editado && <span className="tag e" title="Editado a mano">EDITADO</span>}</td>
+                  <td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Avatar nombre={r.vendedor} size={24} />{r.vendedor}</div></td>
+                  <td><LogoEmp emp={r.empresa} /></td>
+                  <td className="n"><b>{F(r.saldo_total)}</b></td>
                   <td className="n">{venc(r) ? F(venc(r)) : '—'}</td>
                   <td className="n">{+r.t30_60 ? F(r.t30_60) : '—'}</td>
                   <td className="n">{+r.t60_90 ? F(r.t60_90) : '—'}</td>
-                  <td className="n">{+r.t90_mas ? F(r.t90_mas) : '—'}</td>
+                  <td className="n" style={+r.t90_mas ? { color: 'var(--bad)', fontWeight: 600 } : {}}>{+r.t90_mas ? F(r.t90_mas) : '—'}</td>
                   <td>{admin
                     ? <button className="btn sm" onClick={() => toggleCanje(r)}>{cj ? '✓ CANJE' : 'Marcar'}</button>
                     : cj && <span className="tag c">CANJE</span>}</td>

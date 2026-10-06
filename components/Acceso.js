@@ -38,7 +38,11 @@ export default function Acceso({ modo, onListo, onSetupHecho }) {
   return (
     <div className="center">
       <form className="card login" onSubmit={enviar}>
-        <div className="logo" style={{ color: 'var(--ink)', marginBottom: 4 }}>VOLTAJE <b style={{ color: 'var(--brand)' }}>·</b> ILUMA</div>
+        <div className="logos">
+          <img className="lt" src="/logos/voltaje-color.png" alt="Voltaje" /><img className="dk" src="/logos/voltaje-blanco.png" alt="Voltaje" />
+          <span className="sep" />
+          <img className="lt" src="/logos/iluma-color.png" alt="Iluma" style={{ height: 26 }} /><img className="dk" src="/logos/iluma-blanco.png" alt="Iluma" style={{ height: 26 }} />
+        </div>
         <h3>{modo === 'setup' ? 'Crear administrador' : 'Cuentas Corrientes'}</h3>
         {modo === 'setup' && (
           <p className="sub">Es la primera vez que se usa la app. Creá el usuario administrador (tiene todos los permisos).</p>
