@@ -5,11 +5,13 @@ import { M, P, F, venc, sumar, fecha } from '../lib/formato';
 import { filtrar } from './Filtros';
 import { Avatar, LogoEmp, Semaforo, Delta, Sparkline, Contador, IC } from './ui';
 
+const MIN_ALERTA = 30000; // las alertas ignoran montos menores a $30.000
 const TRAMOS = [['t30_60', 't1', '30-60'], ['t60_90', 't2', '60-90'], ['t90_mas', 't3', '+90']];
 
 export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, S, setS, canje, hist, prev, sel, onAbrir }) {
   const [orden, setOrden] = useState('venc');
   const [alerta, setAlerta] = useState('a90');
+  const [rango, setRango] = useState(13);
   const c = sumar(vista);
   const o = vistaPrev ? sumar(vistaPrev) : null;
 
@@ -59,11 +61,11 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
   (vistaPrev || []).forEach((r) => (pm[r.codigo] = r));
   let AL = [];
   if (vistaPrev) {
-    if (alerta === 'a90') AL = vista.filter((r) => r.t90_mas > 0 && pm[r.codigo] && !(pm[r.codigo].t90_mas > 0)).sort((a, b) => b.t90_mas - a.t90_mas).map((r) => [r, <b>{M(r.t90_mas)}</b>]);
-    if (alerta === 'nue') AL = vista.filter((r) => !pm[r.codigo]).sort((a, b) => b.saldo_total - a.saldo_total).map((r) => [r, <b>{M(r.saldo_total)}</b>]);
+    if (alerta === 'a90') AL = vista.filter((r) => r.t90_mas >= MIN_ALERTA && pm[r.codigo] && !(pm[r.codigo].t90_mas > 0)).sort((a, b) => b.t90_mas - a.t90_mas).map((r) => [r, <b>{M(r.t90_mas)}</b>]);
+    if (alerta === 'nue') AL = vista.filter((r) => !pm[r.codigo] && r.saldo_total >= MIN_ALERTA).sort((a, b) => b.saldo_total - a.saldo_total).map((r) => [r, <b>{M(r.saldo_total)}</b>]);
     if (alerta === 'emp' || alerta === 'mej') {
       AL = vista.filter((r) => pm[r.codigo]).map((r) => [r, venc(r) - venc(pm[r.codigo])])
-        .filter(([, d]) => (alerta === 'emp' ? d >= 1 : d <= -1))
+        .filter(([, d]) => (alerta === 'emp' ? d >= MIN_ALERTA : d <= -MIN_ALERTA))
         .sort((a, b) => (alerta === 'emp' ? b[1] - a[1] : a[1] - b[1])).slice(0, 30)
         .map(([r]) => [r, null]);
     }
@@ -122,7 +124,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
         </div>
       </div>
 
-      <div className="grid c3 mt">
+      <div className="grid mt">
         <div className="card">
           <h3>Ranking de vendedores
             <small>ordenar de mayor a menor por <select value={orden} onChange={(e) => setOrden(e.target.value)} style={{ padding: '4px 6px' }}>
@@ -166,8 +168,11 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
           </div>
         </div>
         <div className="card">
-          <h3>Evolución semanal <small>saldo y vencido</small></h3>
-          <Evolucion pts={pts} />
+          <h3>Evolución semanal
+            <small>ver <select value={rango} onChange={(e) => setRango(+e.target.value)} style={{ padding: '4px 6px' }}>
+              <option value={8}>últimas 8 semanas</option><option value={13}>últimos 3 meses</option><option value={26}>últimos 6 meses</option><option value={0}>todo el historial</option>
+            </select></small></h3>
+          <Evolucion pts={rango ? pts.slice(-rango) : pts} />
           <div className="legend"><span><i className="sw" style={{ background: 'var(--ink)' }} />Saldo</span><span><i className="sw" style={{ background: 'var(--t2)' }} />Vencido</span><span><i className="sw" style={{ background: 'var(--t3)' }} />+90</span></div>
         </div>
       </div>
@@ -234,13 +239,31 @@ function Dona({ segs, total, pct }) {
 
 function Evolucion({ pts }) {
   if (pts.length === 0) return <div className="muted">Sin datos</div>;
-  const w = 460, h = 220, pl = 92, pr = 62, pt = 14, pb = 26;
+  const w = 1100, h = 280, pl = 110, pr = 80, pt = 16, pb = 30;
   const mx = Math.max(...pts.map(([, p]) => p.saldo), 1) * 1.12;
   const x = (i) => (pts.length === 1 ? (pl + w - pr) / 2 : pl + (i * (w - pl - pr)) / (pts.length - 1));
   const y = (v) => pt + (h - pt - pb) * (1 - v / mx);
   const ser = [['saldo', 'ink', 'Saldo'], ['venc', 't2', 'Vencido'], ['t3', 't3', '+90']];
-  const paso = Math.ceil(pts.length / 8);
+  const paso = Math.ceil(pts.length / 14);
+  const ini = pts[0][1], fin = pts[pts.length - 1][1];
+  const resumen = pts.length > 1 && (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+      {ser.map(([k, c, l]) => {
+        const d = fin[k] - ini[k];
+        return (
+          <div key={k} style={{ flex: '1 1 220px', background: 'var(--soft)', borderRadius: 12, padding: '10px 12px', fontSize: 12.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink2)' }}><i className="sw" style={{ background: `var(--${c})` }} />{l} · desde el {fecha(pts[0][0]).slice(0, 5)}</div>
+            <div style={{ marginTop: 3 }}><b>{F(ini[k])}</b> → <b>{F(fin[k])}</b></div>
+            <div style={{ fontWeight: 700, color: Math.abs(d) < 1 ? 'var(--ink3)' : d > 0 ? 'var(--bad)' : 'var(--ok)' }}>
+              {Math.abs(d) < 1 ? 'sin cambios' : `${d > 0 ? '▲ subió' : '▼ bajó'} ${F(Math.abs(d))}${ini[k] ? ` (${P(Math.abs(d / ini[k]))})` : ''}`}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
   return (
+    <>
     <svg viewBox={`0 0 ${w} ${h}`} width="100%">
       <defs>
         {ser.map(([, c]) => (
@@ -261,13 +284,15 @@ function Evolucion({ pts }) {
             {pts.length > 1 && <path d={`M${x(0)},${y(0)} L${line.join(' L')} L${x(pts.length - 1)},${y(0)}Z`} fill={`url(#g${c})`} />}
             <polyline points={line.join(' ')} fill="none" stroke={`var(--${c})`} strokeWidth="2.5" strokeLinejoin="round" />
             {pts.map(([f, p], i) => (
-              <circle key={f} cx={x(i)} cy={y(p[k])} r="5" fill={`var(--${c})`} stroke="var(--card)" strokeWidth="2"><title>{`${l} ${fecha(f)}: ${F(p[k])}`}</title></circle>
+              <circle key={f} cx={x(i)} cy={y(p[k])} r="5" fill={`var(--${c})`} stroke="var(--card)" strokeWidth="2"><title>{`${l} ${fecha(f)}: ${F(p[k])}${k !== 'saldo' ? ` (${P(p[k] / p.saldo)} del saldo)` : ''}`}</title></circle>
             ))}
             <text x={x(pts.length - 1) + 10} y={y(pts[pts.length - 1][1][k]) + 4} style={{ fill: 'var(--ink2)', fontWeight: 600 }}>{l}</text>
           </g>
         );
       })}
     </svg>
+    {resumen}
+    </>
   );
 }
 
