@@ -62,9 +62,9 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
     if (alerta === 'nue') AL = vista.filter((r) => !pm[r.codigo]).sort((a, b) => b.saldo_total - a.saldo_total).map((r) => [r, <b>{M(r.saldo_total)}</b>]);
     if (alerta === 'emp' || alerta === 'mej') {
       AL = vista.filter((r) => pm[r.codigo]).map((r) => [r, venc(r) - venc(pm[r.codigo])])
-        .filter(([, d]) => (alerta === 'emp' ? d > 0 : d < 0))
+        .filter(([, d]) => (alerta === 'emp' ? d >= 1 : d <= -1))
         .sort((a, b) => (alerta === 'emp' ? b[1] - a[1] : a[1] - b[1])).slice(0, 30)
-        .map(([r, d]) => [r, <b style={{ color: d > 0 ? 'var(--bad)' : 'var(--ok)' }}>{d > 0 ? '+' : '−'}{M(Math.abs(d))}</b>]);
+        .map(([r]) => [r, null]);
     }
   }
   const icA = { a90: ['⏰', 'var(--bad-bg)'], nue: ['✦', 'var(--soft)'], emp: ['↗', 'var(--bad-bg)'], mej: ['↘', 'var(--ok-bg)'] }[alerta];
@@ -168,7 +168,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
                   <tr key={r.codigo} className={canje.has(r.codigo) ? 'canje' : ''}>
                     <td className="muted">{i + 1}</td>
                     <td className="rs"><div style={{ fontWeight: 600 }}><a className="link-cli" onClick={() => onAbrir(r.codigo)} title="Ver composición de deuda">{r.razon_social}</a> {canje.has(r.codigo) && <span className="tag c">CANJE</span>}</div>
-                      <small className="muted">{r.vendedor}{r.t90_mas > 0 ? ` · +90 ${M(r.t90_mas)}` : ''}</small></td>
+                      <small className="muted" style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}><LogoEmp emp={r.empresa} />{r.vendedor}{r.t90_mas > 0 ? ` · +90 ${M(r.t90_mas)}` : ''}</small></td>
                     <td className="n"><b>{M(venc(r))}</b></td><td className="n">{P(venc(r) / tv)}</td>
                   </tr>
                 ))}
@@ -188,7 +188,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
             {!vistaPrev && <li className="muted">Necesita una semana anterior para comparar</li>}
             {vistaPrev && AL.length === 0 && <li className="muted">Nada para mostrar con estos filtros</li>}
             {AL.map(([r, t]) => (
-              <AlertaItem key={alerta + r.codigo} r={r} p={pm[r.codigo]} t={t} ic={icA} sel={sel} prev={prev} />
+              <AlertaItem key={alerta + r.codigo} r={r} p={pm[r.codigo]} tipo={alerta} ic={icA} sel={sel} prev={prev} />
             ))}
           </ul>
         </div>
@@ -259,7 +259,31 @@ function Evolucion({ pts }) {
 const TR = { aldia: 'al día', t1: '30-60', t2: '60-90', t3: '+90', cubierta: 'cubierta', credito: 'a cuenta' };
 const k = (c) => `${c.tipo} ${c.numero}`;
 
-function AlertaItem({ r, p, t, ic, sel, prev }) {
+// Motivo corto de la alerta (sin abrir)
+function motivo(tipo, r, p) {
+  if (tipo === 'nue') return [['bad', `Cliente nuevo con deuda ${F(r.saldo_total)}`]];
+  const d = (c) => +r[c] - (p ? +p[c] : 0);
+  const ds = d('saldo_total'), d1 = d('t30_60'), d2 = d('t60_90'), d3 = d('t90_mas');
+  const dv = d1 + d2 + d3;
+  const U = 1000; // ignora diferencias menores a $1.000 (redondeos)
+  const out = [];
+  if (tipo === 'a90') return [['bad', `Pasó a +90 días: ${F(r.t90_mas)}`]];
+  if (tipo === 'emp') {
+    if (d3 >= U) out.push(['bad', p && +p.t90_mas > 0 ? `Creció lo de +90 en ${F(d3)}` : `Pasó deuda a +90: ${F(d3)}`]);
+    if (d2 >= U) out.push(['bad', `Pasó deuda a 60-90: ${F(d2)}`]);
+    if (d1 >= U) out.push(['bad', `Facturas que se vencieron (30-60): ${F(d1)}`]);
+    if (ds >= U) out.push(['bad', `Sumó deuda: ${F(ds)}`]);
+    if (!out.length) out.push(['bad', `Subió el vencido ${F(dv)}`]);
+  } else {
+    if (ds <= -U) out.push(['ok', `Pagó / bajó la deuda: ${F(-ds)}`]);
+    if (dv <= -U && ds > -U) out.push(['ok', `Bajó el vencido: ${F(-dv)}`]);
+    if (d3 <= -U) out.push(['ok', `Bajó lo de +90: ${F(-d3)}`]);
+    if (!out.length) out.push(['ok', `Bajó el vencido ${F(-dv)}`]);
+  }
+  return out.slice(0, 2);
+}
+
+function AlertaItem({ r, p, tipo, ic, sel, prev }) {
   const [abierto, setAbierto] = useState(false);
   const [det, setDet] = useState(null);
 
@@ -304,7 +328,15 @@ function AlertaItem({ r, p, t, ic, sel, prev }) {
     <li style={{ display: 'block', cursor: 'pointer' }} onClick={abrir}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <div className="dot" style={{ background: ic[1] }}>{ic[0]}</div>
-        <div className="t"><div><b>{r.razon_social}</b></div><small>{r.vendedor}</small></div>{t}
+        <div className="t">
+          <div><b>{r.razon_social}</b></div>
+          <small style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}><LogoEmp emp={r.empresa} />{r.vendedor}</small>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5, whiteSpace: 'normal', overflow: 'visible' }}>
+            {motivo(tipo, r, p).map(([tp, txt], i) => (
+              <span key={i} className={'pill ' + tp} style={{ margin: 0, whiteSpace: 'normal' }}>{txt}</span>
+            ))}
+          </div>
+        </div>
         <span className="muted" style={{ fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
       </div>
       {abierto && (
@@ -320,7 +352,6 @@ function AlertaItem({ r, p, t, ic, sel, prev }) {
           </table>
           <div style={{ marginTop: 10, fontSize: 12.5 }}>
             {!det && <span className="muted">Buscando comprobantes…</span>}
-            {det && !ev && <span className="muted">La semana anterior no tiene el detalle de comprobantes guardado. Desde la próxima carga vas a ver acá factura por factura qué cambió.</span>}
             {ev && ev.length === 0 && <span className="muted">Sin movimientos de comprobantes: el cambio es solo por el paso del tiempo.</span>}
             {ev && ev.map(([tp, txt], i) => (
               <div key={i} style={{ display: 'flex', gap: 6, padding: '3px 0' }}>
