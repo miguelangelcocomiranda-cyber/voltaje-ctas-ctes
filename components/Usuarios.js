@@ -56,8 +56,8 @@ export default function Usuarios({ perfil }) {
       <div className="card">
         <h3>Nuevo usuario</h3>
         <div className="row"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Gerencia" /></div>
-        <div className="row"><label>Mail</label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-        <div className="row"><label>Contraseña</label><input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="mínimo 8 caracteres" /></div>
+        <div className="row"><label>Mail</label><input type="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+        <div className="row"><label>Contraseña</label><input type="text" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="mínimo 8 caracteres" /></div>
         <div className="row"><label>Rol</label>
           <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })}>
             <option value="lector">Solo lectura</option>
@@ -66,7 +66,7 @@ export default function Usuarios({ perfil }) {
         <button className="btn pri" disabled={ocupado} onClick={() => accion(async () => {
           await api('/api/usuarios', 'POST', form);
           setForm({ nombre: '', email: '', password: '', rol: 'lector' });
-        }, `Usuario creado. Pasale el mail y la contraseña a la persona.`)}>Crear usuario</button>
+        }, `Usuario ${form.email.trim().toLowerCase()} creado con la contraseña "${form.password.trim()}". Pasale esos datos a la persona.`)}>Crear usuario</button>
         <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>
           <b>Admin:</b> carga semanas, edita, elimina, asigna vendedores, marca canje, configura y crea usuarios.<br />
           <b>Solo lectura:</b> ve el dashboard y los clientes, filtra y descarga Excel.
@@ -76,7 +76,7 @@ export default function Usuarios({ perfil }) {
       {clave && (
         <Modal titulo={'Nueva contraseña para ' + clave.email} onCancelar={() => setClave(null)} ocupado={ocupado}
           onAceptar={() => accion(async () => { await api('/api/usuarios', 'PATCH', { id: clave.id, password: clave.password }); setClave(null); }, 'Contraseña cambiada')}>
-          <div className="row"><label>Contraseña</label><input type="text" value={clave.password} onChange={(e) => setClave({ ...clave, password: e.target.value })} placeholder="mínimo 8 caracteres" /></div>
+          <div className="row"><label>Contraseña</label><input type="text" autoComplete="new-password" value={clave.password} onChange={(e) => setClave({ ...clave, password: e.target.value })} placeholder="mínimo 8 caracteres" /></div>
         </Modal>
       )}
       {baja && (
