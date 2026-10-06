@@ -45,7 +45,8 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
   });
   const rk = Object.values(g).map((x) => ({ ...x, venc: x.t30_60 + x.t60_90 + x.t90_mas, pct: (x.t30_60 + x.t60_90 + x.t90_mas) / x.saldo }));
   rk.sort((a, b) => b[orden] - a[orden]);
-  const mx = Math.max(...rk.map((x) => x.venc), 1);
+  const mx = Math.max(...rk.map((x) => x.saldo), 1);
+  const totR = rk.reduce((a, x) => ({ saldo: a.saldo + x.saldo, venc: a.venc + x.venc }), { saldo: 0, venc: 0 });
   const soloUno = (v) => S.vens && S.vens.length === 1 && S.vens[0] === v;
 
   // ---- concentracion / top ----
@@ -124,24 +125,38 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
       <div className="grid c3 mt">
         <div className="card">
           <h3>Ranking de vendedores
-            <small>ordenar <select value={orden} onChange={(e) => setOrden(e.target.value)} style={{ padding: '4px 6px' }}>
-              <option value="venc">$ vencido</option><option value="pct">% vencido</option><option value="t90_mas">$ +90</option><option value="saldo">$ saldo</option>
+            <small>ordenar de mayor a menor por <select value={orden} onChange={(e) => setOrden(e.target.value)} style={{ padding: '4px 6px' }}>
+              <option value="saldo">Saldo</option><option value="venc">Saldo vencido</option><option value="pct">% vencido</option>
             </select> · tocá uno para filtrar</small></h3>
+          <div className="rk muted" style={{ cursor: 'default', fontSize: 10.5, fontWeight: 600, letterSpacing: '.4px' }}>
+            <span /><span>VENDEDOR</span><span>COMPOSICIÓN DEL SALDO</span><span className="num">SALDO</span><span className="num">VENCIDO</span><span style={{ textAlign: 'center' }}>% VENCIDO</span>
+          </div>
           {rk.length === 0 && <div className="muted">Sin datos con estos filtros</div>}
           {rk.map((x) => (
             <div key={x.ven} className={'rk ' + (soloUno(x.ven) ? 'on' : '')} onClick={() => setS((s) => ({ ...s, vens: soloUno(x.ven) ? null : [x.ven] }))}>
               <Avatar nombre={x.ven} />
               <div><div className="nm">{x.ven}</div><div style={{ marginTop: 3 }}><LogoEmp emp={x.emp} /></div></div>
-              <div className="b" style={{ width: Math.max((x.venc / mx) * 100, 1) + '%' }}>
+              <div className="b" style={{ width: Math.max((x.saldo / mx) * 100, 1) + '%' }}>
+                {x.saldo - x.venc > 0 && <div style={{ flex: x.saldo - x.venc, background: 'var(--t0)' }} title={`${x.ven} · Al día: ${F(x.saldo - x.venc)}`} />}
                 {TRAMOS.filter(([k]) => x[k] > 0).map(([k, t, l]) => (
-                  <div key={k} style={{ flex: x[k], background: `var(--${t})` }} title={`${x.ven} · ${l}: ${F(x[k])} (${P(x[k] / x.venc)})`} />
+                  <div key={k} style={{ flex: x[k], background: `var(--${t})` }} title={`${x.ven} · ${l}: ${F(x[k])} (${P(x[k] / x.saldo)} del saldo)`} />
                 ))}
               </div>
-              <div className="num">{M(x.venc)}</div>
+              <div className="num" style={{ fontWeight: orden === 'saldo' ? 800 : 600 }}>{M(x.saldo)}</div>
+              <div className="num" style={{ color: 'var(--bad)', fontWeight: orden === 'venc' ? 800 : 600 }}>{M(x.venc)}</div>
               <Semaforo p={x.pct} />
             </div>
           ))}
+          {rk.length > 1 && (
+            <div className="rk" style={{ cursor: 'default', borderTop: '1px solid var(--line)', marginTop: 6, paddingTop: 10 }}>
+              <span /><b>Total</b><span className="muted" style={{ fontSize: 12 }}>{P(totR.venc / totR.saldo)} del saldo está vencido</span>
+              <div className="num" style={{ fontWeight: 800 }}>{M(totR.saldo)}</div>
+              <div className="num" style={{ color: 'var(--bad)', fontWeight: 800 }}>{M(totR.venc)}</div>
+              <Semaforo p={totR.venc / totR.saldo} />
+            </div>
+          )}
           <div className="legend">
+            <span><i className="sw" style={{ background: 'var(--t0)' }} />Al día</span>
             {TRAMOS.map(([k, t, l]) => <span key={k}><i className="sw" style={{ background: `var(--${t})` }} />{l}</span>)}
             <span style={{ marginLeft: 'auto', gap: 6 }}>
               <span className="pill ok" style={{ margin: 0 }}>● Sano &lt;30%</span>
