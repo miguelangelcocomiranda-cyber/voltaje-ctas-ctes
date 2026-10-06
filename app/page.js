@@ -85,9 +85,14 @@ function App({ perfil }) {
         supabase.from('vendedores').select('*').order('nombre'),
         traerTodo(() => supabase.from('clientes').select('*').order('codigo')),
         supabase.from('configuracion').select('*'),
-        traerTodo(() => supabase.from('v_historial').select('*').order('fecha_corte')),
+        // historial: todas las filas con vendedor de todas las semanas (para evolucion y mini graficos)
+        traerTodo(() => supabase.from('informe_filas')
+          .select('id,informe_id,codigo,razon_social,empresa,vendedor,saldo_total,saldo_vencido,t30_60,t60_90,t90_mas')
+          .not('vendedor', 'is', null).order('id')).catch(() => []),
       ]);
       if (inf.error) throw inf.error;
+      const fechaDe = Object.fromEntries(inf.data.map((i) => [i.id, i.fecha_corte]));
+      h.forEach((r) => (r.fecha_corte = fechaDe[r.informe_id]));
       setInformes(inf.data);
       setVendedores(ven.data || []);
       setClientes(cli);
