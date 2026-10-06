@@ -14,7 +14,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
 
   // ---- historial filtrado por empresa / vendedores ----
   const porFecha = {};
-  hist.filter((h) => h.vendedor && (!S.emp || h.empresa === S.emp) && (!S.vens || S.vens.includes(h.vendedor))).forEach((h) => {
+  filtrar(hist, S, canje).forEach((h) => {
     const x = (porFecha[h.fecha_corte] ??= { saldo: 0, venc: 0, t1: 0, t2: 0, t3: 0 });
     x.saldo += +h.saldo_total; x.venc += +h.saldo_vencido; x.t1 += +h.t30_60; x.t2 += +h.t60_90; x.t3 += +h.t90_mas;
   });
@@ -31,14 +31,14 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
 
   // ---- empresas ----
   const emp = ['voltaje', 'iluma'].map((e) => {
-    const s2 = { ...S, emp: e, vens: null };
+    const s2 = { ...S, emp: e };
     return [e, sumar(filtrar(asignadas, s2, canje)), vistaPrev ? sumar(filtrar(asignadasPrev, s2, canje)) : null];
   });
   const totEmp = emp[0][1].saldo + emp[1][1].saldo;
 
   // ---- ranking ----
   const g = {};
-  filtrar(asignadas, { ...S, vens: null }, canje).forEach((r) => {
+  vista.forEach((r) => {
     const x = (g[r.vendedor] ??= { ven: r.vendedor, emp: r.empresa, saldo: 0, t30_60: 0, t60_90: 0, t90_mas: 0 });
     x.saldo += +r.saldo_total; x.t30_60 += +r.t30_60; x.t60_90 += +r.t60_90; x.t90_mas += +r.t90_mas;
   });
@@ -91,7 +91,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
           <div className="emp">
             {emp.map(([e, s, p]) => (
               <div key={e} className={'ebox ' + (S.emp === e ? 'on' : '')} style={{ '--c': `var(--${e === 'voltaje' ? 'vol' : 'ilu'})` }}
-                onClick={() => setS((x) => ({ ...x, emp: x.emp === e ? '' : e, vens: null }))}>
+                onClick={() => setS((x) => ({ ...x, emp: x.emp === e ? '' : e }))}>
                 <img className="lt" src={`/logos/${e}-color.png`} alt={e} />
                 <img className="dk" src={`/logos/${e}-blanco.png`} alt={e} />
                 <div className="big">{M(s.saldo)}</div>
