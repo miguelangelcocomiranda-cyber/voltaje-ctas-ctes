@@ -219,7 +219,7 @@ function Dona({ segs, total, pct }) {
 
 function Evolucion({ pts }) {
   if (pts.length === 0) return <div className="muted">Sin datos</div>;
-  const w = 420, h = 210, pl = 46, pr = 62, pt = 14, pb = 26;
+  const w = 460, h = 220, pl = 92, pr = 62, pt = 14, pb = 26;
   const mx = Math.max(...pts.map(([, p]) => p.saldo), 1) * 1.12;
   const x = (i) => (pts.length === 1 ? (pl + w - pr) / 2 : pl + (i * (w - pl - pr)) / (pts.length - 1));
   const y = (v) => pt + (h - pt - pb) * (1 - v / mx);
@@ -236,7 +236,7 @@ function Evolucion({ pts }) {
       </defs>
       {[0, 1, 2, 3, 4].map((i) => {
         const v = (mx * i) / 4;
-        return <g key={i}><line x1={pl} x2={w - pr} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeDasharray={i ? '3 4' : ''} /><text x={pl - 8} y={y(v) + 4} textAnchor="end">{Math.round(v / 1e6)}M</text></g>;
+        return <g key={i}><line x1={pl} x2={w - pr} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeDasharray={i ? '3 4' : ''} /><text x={pl - 8} y={y(v) + 4} textAnchor="end">{F(v)}</text></g>;
       })}
       {pts.map(([f], i) => (i % paso === 0 || i === pts.length - 1) && <text key={f} x={x(i)} y={h - 6} textAnchor="middle">{fecha(f).slice(0, 5)}</text>)}
       {ser.map(([k, c, l]) => {
