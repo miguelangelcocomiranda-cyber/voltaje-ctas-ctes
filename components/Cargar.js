@@ -58,6 +58,12 @@ export default function Cargar({ informes, recargar, alTerminar, setSelId, perfi
         const { error } = await supabase.from('informe_filas').insert(filas.slice(i, i + 500));
         if (error) throw error;
       }
+      setEstado('Guardando comprobantes…');
+      const comps = res.comprobantes.map((c) => ({ ...c, informe_id: inf.id }));
+      for (let i = 0; i < comps.length; i += 1000) {
+        const { error } = await supabase.from('informe_comprobantes').insert(comps.slice(i, i + 1000));
+        if (error) throw error;
+      }
       setEstado('');
       await recargar();
       setSelId(inf.id);
@@ -105,6 +111,7 @@ export default function Cargar({ informes, recargar, alTerminar, setSelId, perfi
                 <tr><td>Saldo total (con vendedor)</td><td className="n">{M(t.saldo)}</td></tr>
                 <tr><td>Vencido (con vendedor)</td><td className="n">{M(t.venc)}</td></tr>
                 <tr><td>30-60 / 60-90 / +90</td><td className="n">{M(t.t1)} / {M(t.t2)} / {M(t.t3)}</td></tr>
+                <tr><td>Comprobantes guardados (composición de deuda)</td><td className="n">{res.comprobantes.length.toLocaleString('es-AR')}</td></tr>
                 <tr><td className="muted">Excluidos por regla (VTJ) / a mano / saldo mínimo</td><td className="n muted">{res.excluidos.regla} / {res.excluidos.manual} / {res.excluidos.minimo}</td></tr>
               </tbody>
             </table>

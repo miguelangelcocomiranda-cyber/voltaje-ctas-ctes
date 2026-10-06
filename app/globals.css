@@ -109,3 +109,22 @@ th.sort{cursor:pointer}
 
 .tw{max-height:calc(100vh - 220px);min-height:300px}
 .c31 .rs{max-width:190px}
+/* ---- Composicion de deuda ---- */
+.comp{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
+@media(max-width:1000px){.comp{grid-template-columns:1fr}}
+.clist{max-height:calc(100vh - 160px);overflow:auto;margin:0 -8px;padding:0 8px}
+.citem{display:block;padding:10px;border-radius:12px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.citem:hover{background:var(--soft)}.citem.on{background:var(--soft);border-color:var(--ink3)}
+.citem .t{display:flex;justify-content:space-between;gap:8px;font-size:13px}.citem .t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.citem .s{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--ink3);margin-top:4px}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+@media(max-width:700px){.mini{grid-template-columns:1fr 1fr}}
+.mini div{background:var(--soft);border-radius:12px;padding:10px 12px}.mini small{color:var(--ink3);font-size:11.5px}.mini b{display:block;font-size:18px;margin-top:2px}
+.tr{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.tr.aldia{background:var(--soft);color:var(--ink2)}.tr.t1{background:color-mix(in srgb,var(--t1) 30%,transparent);color:#1c5cab}
+.tr.t2{background:color-mix(in srgb,var(--t2) 22%,transparent);color:var(--t2)}.tr.t3{background:var(--t3);color:#fff}
+.tr.cubierta{background:var(--ok-bg);color:var(--ok)}.tr.credito{background:var(--warn-bg);color:var(--warn)}
+:root[data-theme=dark] .tr.t1{color:var(--t1)}
+tr.cub td{opacity:.6}.det{font-size:11px;color:var(--ink3);white-space:normal;min-width:180px;max-width:240px}
+.tag.nueva{background:var(--vol);color:#fff}
+@media print{aside,.filters,.top .r,.noprint{display:none!important}.app{display:block}main{padding:0}.comp{display:block}.card{box-shadow:none;border:0}.tw{max-height:none!important;overflow:visible}body{background:#fff}}

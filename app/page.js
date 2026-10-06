@@ -11,6 +11,7 @@ import SinAsignar from '../components/SinAsignar';
 import Cargar from '../components/Cargar';
 import Usuarios from '../components/Usuarios';
 import Configuracion from '../components/Configuracion';
+import Composicion from '../components/Composicion';
 import { IC, avColor, iniciales } from '../components/ui';
 
 export default function Inicio() {
@@ -52,7 +53,7 @@ export default function Inicio() {
   return <App perfil={perfil} />;
 }
 
-const TITULOS = { dash: 'Dashboard', cli: 'Clientes', sin: 'Sin asignar', carga: 'Cargar semana', usr: 'Usuarios', cfg: 'Configuración' };
+const TITULOS = { dash: 'Dashboard', cli: 'Clientes', det: 'Composición de deuda', sin: 'Sin asignar', carga: 'Cargar semana', usr: 'Usuarios', cfg: 'Configuración' };
 
 function App({ perfil }) {
   const admin = perfil.rol === 'admin';
@@ -143,7 +144,7 @@ function App({ perfil }) {
   const vistaPrev = prev ? filtrar(asignadasPrev, S, canje) : null;
 
   const nav = [
-    ['dash', IC.dash], ['cli', IC.cli],
+    ['dash', IC.dash], ['cli', IC.cli], ['det', IC.det],
     ...(admin ? [['sin', IC.sin], ['carga', IC.carga], ['usr', IC.usr], ['cfg', IC.cfg]] : []),
   ];
   const conFiltros = tab === 'dash' || tab === 'cli';
@@ -168,7 +169,7 @@ function App({ perfil }) {
           <div className="av" style={{ background: avColor(nombre) }}>{iniciales(nombre)}</div>
           <div style={{ minWidth: 0 }}>
             <div className="n" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{nombre}</div>
-            <div className="r">{admin ? 'Administrador' : 'Solo lectura'}</div>
+            <div className="r">{admin ? 'Administrador' : perfil.rol === 'vendedor' ? `Vendedor · ${perfil.vendedor}` : 'Solo lectura'}</div>
           </div>
           <button onClick={() => supabase.auth.signOut()}>Salir</button>
         </div>
@@ -205,6 +206,9 @@ function App({ perfil }) {
           )}
           {!cargando && sel && tab === 'cli' && (
             <Clientes vista={vista} admin={admin} canje={canje} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />
+          )}
+          {!cargando && sel && tab === 'det' && (
+            <Composicion filas={filas} sel={sel} prev={prev} canje={canje} />
           )}
           {admin && tab === 'sin' && sel && (
             <SinAsignar filas={sinAsignar} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />

@@ -8,7 +8,7 @@ const err = (m, s = 400) => NextResponse.json({ error: m }, { status: s });
 export async function GET(req) {
   const a = await exigirAdmin(req);
   if (a.error) return err(a.error, a.status);
-  const { data, error } = await a.sb.from('perfiles').select('id,email,nombre,rol,creado').order('creado');
+  const { data, error } = await a.sb.from('perfiles').select('id,email,nombre,rol,vendedor,creado').order('creado');
   if (error) return err(error.message, 500);
   return NextResponse.json({ usuarios: data });
 }
@@ -22,11 +22,13 @@ export async function POST(req) {
   const email = (body.email || '').trim().toLowerCase();
   const password = (body.password || '').trim();
   const rol = body.rol;
+  const vendedor = rol === 'vendedor' ? (body.vendedor || '').trim() : null;
   if (!email || !password || password.length < 8) return err('Completá mail y una contraseña de al menos 8 caracteres');
-  if (!['admin', 'lector'].includes(rol)) return err('Rol inválido');
+  if (!['admin', 'lector', 'vendedor'].includes(rol)) return err('Rol inválido');
+  if (rol === 'vendedor' && !vendedor) return err('Elegí qué vendedor es');
   const { data, error } = await a.sb.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) return err(error.message.includes('already') ? 'Ese mail ya tiene usuario' : error.message);
-  await a.sb.from('perfiles').upsert({ id: data.user.id, email, nombre: nombre || email, rol });
+  await a.sb.from('perfiles').upsert({ id: data.user.id, email, nombre: nombre || email, rol, vendedor });
   return NextResponse.json({ ok: true });
 }
 
@@ -36,12 +38,14 @@ export async function PATCH(req) {
   if (a.error) return err(a.error, a.status);
   const body = await req.json();
   const { id, rol } = body;
+  const vendedor = rol === 'vendedor' ? (body.vendedor || '').trim() : null;
   const password = (body.password || '').trim();
   if (!id) return err('Falta el usuario');
   if (rol) {
-    if (!['admin', 'lector'].includes(rol)) return err('Rol inválido');
+    if (!['admin', 'lector', 'vendedor'].includes(rol)) return err('Rol inválido');
+    if (rol === 'vendedor' && !vendedor) return err('Elegí qué vendedor es');
     if (id === a.usuario.id && rol !== 'admin') return err('No podés quitarte el rol de admin a vos mismo');
-    const { error } = await a.sb.from('perfiles').update({ rol }).eq('id', id);
+    const { error } = await a.sb.from('perfiles').update({ rol, vendedor }).eq('id', id);
     if (error) return err(error.message, 500);
   }
   if (password) {
