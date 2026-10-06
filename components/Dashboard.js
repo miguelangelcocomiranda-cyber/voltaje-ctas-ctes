@@ -7,7 +7,7 @@ import { Avatar, LogoEmp, Semaforo, Delta, Sparkline, Contador, IC } from './ui'
 
 const TRAMOS = [['t30_60', 't1', '30-60'], ['t60_90', 't2', '60-90'], ['t90_mas', 't3', '+90']];
 
-export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, S, setS, canje, hist, prev, sel }) {
+export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, S, setS, canje, hist, prev, sel, onAbrir }) {
   const [orden, setOrden] = useState('venc');
   const [alerta, setAlerta] = useState('a90');
   const c = sumar(vista);
@@ -167,7 +167,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
                 {conV.slice(0, 10).map((r, i) => (
                   <tr key={r.codigo} className={canje.has(r.codigo) ? 'canje' : ''}>
                     <td className="muted">{i + 1}</td>
-                    <td className="rs"><div style={{ fontWeight: 600 }}>{r.razon_social} {canje.has(r.codigo) && <span className="tag c">CANJE</span>}</div>
+                    <td className="rs"><div style={{ fontWeight: 600 }}><a className="link-cli" onClick={() => onAbrir(r.codigo)} title="Ver composición de deuda">{r.razon_social}</a> {canje.has(r.codigo) && <span className="tag c">CANJE</span>}</div>
                       <small className="muted">{r.vendedor}{r.t90_mas > 0 ? ` · +90 ${M(r.t90_mas)}` : ''}</small></td>
                     <td className="n"><b>{M(venc(r))}</b></td><td className="n">{P(venc(r) / tv)}</td>
                   </tr>

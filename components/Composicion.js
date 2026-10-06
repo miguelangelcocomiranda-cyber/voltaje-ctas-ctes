@@ -8,10 +8,16 @@ import { descargarPDF } from '../lib/pdf';
 const TRAMO_TXT = { aldia: 'Al día', t1: '30-60', t2: '60-90', t3: '+90', cubierta: 'Cubierta', credito: 'A cuenta' };
 const clave = (c) => `${c.tipo} ${c.numero}`;
 
-export default function Composicion({ filas, sel, prev, canje }) {
+export default function Composicion({ filas, sel, prev, canje, codInicial }) {
   const [q, setQ] = useState('');
   const [soloVenc, setSoloVenc] = useState(false);
-  const [cod, setCod] = useState(null);
+  const [cod, setCod] = useState(codInicial || null);
+  useEffect(() => { if (codInicial) { setCod(codInicial); setQ(''); } }, [codInicial]);
+  useEffect(() => {
+    const el = document.querySelector('.citem.on');
+    const cont = document.querySelector('.clist');
+    if (el && cont) cont.scrollTop = el.offsetTop - 8;
+  }, [cod]);
   const [comps, setComps] = useState(null);
   const [compsPrev, setCompsPrev] = useState([]);
   const [cargando, setCargando] = useState(false);

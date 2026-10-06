@@ -112,7 +112,7 @@ th.sort{cursor:pointer}
 /* ---- Composicion de deuda ---- */
 .comp{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
 @media(max-width:1000px){.comp{grid-template-columns:1fr}}
-.clist{max-height:calc(100vh - 160px);overflow:auto;margin:0 -8px;padding:0 8px}
+.clist{position:relative;max-height:calc(100vh - 160px);overflow:auto;margin:0 -8px;padding:0 8px}
 .citem{display:block;padding:10px;border-radius:12px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
 .citem:hover{background:var(--soft)}.citem.on{background:var(--soft);border-color:var(--ink3)}
 .citem .t{display:flex;justify-content:space-between;gap:8px;font-size:13px}.citem .t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -128,3 +128,9 @@ th.sort{cursor:pointer}
 tr.cub td{opacity:.6}.det{font-size:11px;color:var(--ink3);white-space:normal;min-width:180px;max-width:240px}
 .tag.nueva{background:var(--vol);color:#fff}
 @media print{aside,.filters,.top .r,.noprint{display:none!important}.app{display:block}main{padding:0}.comp{display:block}.card{box-shadow:none;border:0}.tw{max-height:none!important;overflow:visible}body{background:#fff}}
+
+.link-cli{cursor:pointer;font-weight:700;color:var(--ink);text-decoration:none;border-bottom:1px dashed transparent}
+.link-cli:hover{color:var(--vol);border-bottom-color:var(--vol)}
+.link-cli::after{content:' →';opacity:0;transition:.15s}.link-cli:hover::after{opacity:1}
+
+.citem .t b{flex:1;min-width:0}.citem .t .num{white-space:nowrap;flex:none}

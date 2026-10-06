@@ -71,6 +71,8 @@ function App({ perfil }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [oscuro, setOscuro] = useState(false);
+  const [codDet, setCodDet] = useState(null);
+  const verComposicion = (codigo) => { setCodDet(codigo); setTab('det'); window.scrollTo(0, 0); };
 
   useEffect(() => { setOscuro(document.documentElement.dataset.theme === 'dark'); }, []);
   const cambiarTema = () => {
@@ -203,13 +205,13 @@ function App({ perfil }) {
         <div className="mt">
           {!cargando && sel && tab === 'dash' && (
             <Dashboard vista={vista} vistaPrev={vistaPrev} asignadas={asignadas} asignadasPrev={asignadasPrev}
-              S={S} setS={setS} canje={canje} hist={hist} prev={prev} sel={sel} />
+              S={S} setS={setS} canje={canje} hist={hist} prev={prev} sel={sel} onAbrir={verComposicion} />
           )}
           {!cargando && sel && tab === 'cli' && (
-            <Clientes vista={vista} admin={admin} canje={canje} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />
+            <Clientes vista={vista} onAbrir={verComposicion} admin={admin} canje={canje} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />
           )}
           {!cargando && sel && tab === 'det' && (
-            <Composicion filas={filtrar(filas, S, canje)} sel={sel} prev={prev} canje={canje} />
+            <Composicion filas={filtrar(filas, S, canje)} sel={sel} prev={prev} canje={canje} codInicial={codDet} />
           )}
           {admin && tab === 'sin' && sel && (
             <SinAsignar filas={sinAsignar} vendedores={vendedores} clientes={clientes} sel={sel} recargar={recargar} />

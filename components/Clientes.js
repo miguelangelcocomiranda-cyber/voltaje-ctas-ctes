@@ -10,7 +10,7 @@ const COLS = [
   ['saldo_total', 'Saldo total', 1], ['venc', 'Vencido', 1], ['t30_60', '30-60', 1], ['t60_90', '60-90', 1], ['t90_mas', '+90', 1],
 ];
 
-export default function Clientes({ vista, admin, canje, vendedores, clientes, sel, recargar }) {
+export default function Clientes({ vista, onAbrir, admin, canje, vendedores, clientes, sel, recargar }) {
   const [orden, setOrden] = useState({ k: 'saldo_total', d: -1 });
   const [editando, setEditando] = useState(null);
   const [borrando, setBorrando] = useState(null);
@@ -83,7 +83,7 @@ export default function Clientes({ vista, admin, canje, vendedores, clientes, se
               return (
                 <tr key={r.id} className={cj ? 'canje' : ''}>
                   <td className="muted">{r.codigo}</td>
-                  <td className="rs" title={r.razon_social}><b>{r.razon_social}</b> {r.editado && <span className="tag e" title="Editado a mano">EDITADO</span>}</td>
+                  <td className="rs" title="Ver composición de deuda"><a className="link-cli" onClick={() => onAbrir(r.codigo)}>{r.razon_social}</a> {r.editado && <span className="tag e" title="Editado a mano">EDITADO</span>}</td>
                   <td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Avatar nombre={r.vendedor} size={24} />{r.vendedor}</div></td>
                   <td><LogoEmp emp={r.empresa} /></td>
                   <td className="n"><b>{F(r.saldo_total)}</b></td>
