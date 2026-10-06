@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { exigirAdmin } from '../../../lib/admin';
+import { aEmail, usuarioValido } from '../../../lib/usuario';
 
 export const dynamic = 'force-dynamic';
 const err = (m, s = 400) => NextResponse.json({ error: m }, { status: s });
@@ -19,15 +20,17 @@ export async function POST(req) {
   if (a.error) return err(a.error, a.status);
   const body = await req.json();
   const nombre = (body.nombre || '').trim();
-  const email = (body.email || '').trim().toLowerCase();
+  const usuario = (body.usuario || body.email || '').trim().toLowerCase();
+  if (!usuarioValido(usuario)) return err('El usuario solo puede tener letras, números, punto o guión (mínimo 3, sin espacios)');
+  const email = aEmail(usuario);
   const password = (body.password || '').trim();
   const rol = body.rol;
   const vendedor = rol === 'vendedor' ? (body.vendedor || '').trim() : null;
-  if (!email || !password || password.length < 8) return err('Completá mail y una contraseña de al menos 8 caracteres');
+  if (!password || password.length < 8) return err('La contraseña debe tener al menos 8 caracteres');
   if (!['admin', 'lector', 'vendedor'].includes(rol)) return err('Rol inválido');
   if (rol === 'vendedor' && !vendedor) return err('Elegí qué vendedor es');
   const { data, error } = await a.sb.auth.admin.createUser({ email, password, email_confirm: true });
-  if (error) return err(error.message.includes('already') ? 'Ese mail ya tiene usuario' : error.message);
+  if (error) return err(error.message.includes('already') ? 'Ese usuario ya existe' : error.message);
   await a.sb.from('perfiles').upsert({ id: data.user.id, email, nombre: nombre || email, rol, vendedor });
   return NextResponse.json({ ok: true });
 }
@@ -47,6 +50,14 @@ export async function PATCH(req) {
     if (id === a.usuario.id && rol !== 'admin') return err('No podés quitarte el rol de admin a vos mismo');
     const { error } = await a.sb.from('perfiles').update({ rol, vendedor }).eq('id', id);
     if (error) return err(error.message, 500);
+  }
+  if (body.usuario) {
+    const u = body.usuario.trim().toLowerCase();
+    if (!usuarioValido(u)) return err('El usuario solo puede tener letras, números, punto o guión (mínimo 3, sin espacios)');
+    const email = aEmail(u);
+    const { error } = await a.sb.auth.admin.updateUserById(id, { email, email_confirm: true });
+    if (error) return err(error.message.includes('already') ? 'Ese usuario ya existe' : error.message);
+    await a.sb.from('perfiles').update({ email }).eq('id', id);
   }
   if (password) {
     if (password.length < 8) return err('La contraseña debe tener al menos 8 caracteres');

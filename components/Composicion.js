@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { F, M, P, fecha, venc } from '../lib/formato';
 import { Avatar, LogoEmp } from './ui';
+import { descargarPDF } from '../lib/pdf';
 
 const TRAMO_TXT = { aldia: 'Al día', t1: '30-60', t2: '60-90', t3: '+90', cubierta: 'Cubierta', credito: 'A cuenta' };
 const clave = (c) => `${c.tipo} ${c.numero}`;
@@ -15,6 +16,7 @@ export default function Composicion({ filas, sel, prev, canje }) {
   const [compsPrev, setCompsPrev] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [verCub, setVerCub] = useState(false);
+  const [pdfOcupado, setPdfOcupado] = useState(false);
 
   const lista = useMemo(() => {
     const qq = q.toLowerCase();
@@ -24,7 +26,7 @@ export default function Composicion({ filas, sel, prev, canje }) {
   }, [filas, q, soloVenc]);
 
   useEffect(() => {
-    if (!cod && lista.length) setCod(lista[0].codigo);
+    if (lista.length && !lista.some((x) => x.codigo === cod)) setCod(lista[0].codigo);
   }, [lista, cod]);
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function Composicion({ filas, sel, prev, canje }) {
               </div>
               <div className="noprint" style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" onClick={excel} disabled={!comps?.length}>⬇ Excel</button>
-                <button className="btn" onClick={() => window.print()}>🖨 Imprimir / PDF</button>
+                <button className="btn pri" disabled={!comps?.length || pdfOcupado} onClick={async () => { setPdfOcupado(true); try { await descargarPDF({ r, facturas, creditos, fechaCorte: sel.fecha_corte }); } finally { setPdfOcupado(false); } }}>{pdfOcupado ? 'Generando…' : '⬇ PDF'}</button>
               </div>
             </div>
 

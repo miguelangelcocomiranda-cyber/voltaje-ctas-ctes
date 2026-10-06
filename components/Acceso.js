@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { supabase, api } from '../lib/supabase';
+import { aEmail, usuarioValido } from '../lib/usuario';
 
 export default function Acceso({ modo, onListo, onSetupHecho }) {
   const [nombre, setNombre] = useState('');
@@ -16,14 +17,15 @@ export default function Acceso({ modo, onListo, onSetupHecho }) {
     setError(''); setOk(''); setOcupado(true);
     try {
       if (modo === 'setup') {
-        await api('/api/setup', 'POST', { nombre, email: email.trim().toLowerCase(), password: password.trim() });
-        setOk('Administrador creado. Ahora ingresá con tu mail y contraseña.');
+        if (!usuarioValido(email)) throw new Error('El usuario solo puede tener letras, números, punto o guión (mínimo 3)');
+        await api('/api/setup', 'POST', { nombre, email: aEmail(email), password: password.trim() });
+        setOk('Administrador creado. Ahora ingresá con tu usuario y contraseña.');
         onSetupHecho();
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: password.trim() });
+        const { error } = await supabase.auth.signInWithPassword({ email: aEmail(email), password: password.trim() });
         if (error) {
           const m = error.message || '';
-          if (m.includes('Invalid login')) throw new Error('Mail o contraseña incorrectos. Escribí la contraseña a mano (sin autocompletar) o pedile al admin que te la cambie.');
+          if (m.includes('Invalid login')) throw new Error('Usuario o contraseña incorrectos. Si no te acordás la clave, pedile al administrador que te la cambie.');
           if (m.includes('not confirmed')) throw new Error('El usuario no está confirmado. Pedile al admin que lo vuelva a crear.');
           throw new Error('No se pudo ingresar: ' + m);
         }
@@ -53,8 +55,8 @@ export default function Acceso({ modo, onListo, onSetupHecho }) {
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Facundo" />
           </>
         )}
-        <label className="sub">Mail</label>
-        <input type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label className="sub">Usuario</label>
+        <input type="text" required autoComplete="username" autoCapitalize="none" placeholder="ej: tomasm" value={email} onChange={(e) => setEmail(e.target.value)} />
         <label className="sub">Contraseña {modo === 'setup' && '(mínimo 8 caracteres)'}</label>
         <input type={ver ? 'text' : 'password'} required autoComplete={modo === 'setup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
         <label className="sub" style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '-4px 0 10px' }}>

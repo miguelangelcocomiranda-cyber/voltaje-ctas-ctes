@@ -1,12 +1,13 @@
 'use client';
 import { useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { M, P, F, venc, sumar, fecha } from '../lib/formato';
 import { filtrar } from './Filtros';
 import { Avatar, LogoEmp, Semaforo, Delta, Sparkline, Contador, IC } from './ui';
 
 const TRAMOS = [['t30_60', 't1', '30-60'], ['t60_90', 't2', '60-90'], ['t90_mas', 't3', '+90']];
 
-export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, S, setS, canje, hist, prev }) {
+export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, S, setS, canje, hist, prev, sel }) {
   const [orden, setOrden] = useState('venc');
   const [alerta, setAlerta] = useState('a90');
   const c = sumar(vista);
@@ -156,7 +157,7 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
         </div>
       </div>
 
-      <div className="grid c31 mt">
+      <div className="grid c2 mt">
         <div className="card">
           <h3>Top 10 deudores vencidos</h3>
           <div className="tw">
@@ -175,21 +176,6 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
             </table>
           </div>
         </div>
-        <div className="card conc">
-          <h3>Concentración del vencido</h3>
-          {[[5, 'Top 5'], [10, 'Top 10'], [20, 'Top 20']].map(([k, l]) => (
-            <div className="it" key={k}>
-              <div className="h"><span>{l} clientes</span><b>{P(conc(k))}</b></div>
-              <div className="bar" style={{ height: 10, margin: 0 }}>
-                <div style={{ flex: conc(k), background: 'linear-gradient(90deg,var(--t2),var(--t3))' }} /><div style={{ flex: 1 - conc(k) }} />
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop: 18, padding: 12, borderRadius: 12, background: 'var(--soft)', fontSize: 13 }}>
-            <b style={{ fontSize: 20 }}>{conV.length}</b> clientes con deuda vencida<br />
-            <span className="muted">El top 10 concentra {P(conc(10))} del vencido</span>
-          </div>
-        </div>
         <div className="card">
           <h3>Alertas {prev && <small>vs {fecha(prev.fecha_corte)}</small>}</h3>
           <div className="seg" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
@@ -197,14 +183,12 @@ export default function Dashboard({ vista, vistaPrev, asignadas, asignadasPrev, 
               <button key={v} className={alerta === v ? 'on' : ''} onClick={() => setAlerta(v)}>{l}</button>
             ))}
           </div>
-          <ul className="al">
+          <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Tocá una cuenta para ver por qué cambió</div>
+          <ul className="al" style={{ maxHeight: 520 }}>
             {!vistaPrev && <li className="muted">Necesita una semana anterior para comparar</li>}
             {vistaPrev && AL.length === 0 && <li className="muted">Nada para mostrar con estos filtros</li>}
             {AL.map(([r, t]) => (
-              <li key={r.codigo}>
-                <div className="dot" style={{ background: icA[1] }}>{icA[0]}</div>
-                <div className="t"><div><b>{r.razon_social}</b></div><small>{r.vendedor}</small></div>{t}
-              </li>
+              <AlertaItem key={alerta + r.codigo} r={r} p={pm[r.codigo]} t={t} ic={icA} sel={sel} prev={prev} />
             ))}
           </ul>
         </div>
@@ -269,5 +253,83 @@ function Evolucion({ pts }) {
         );
       })}
     </svg>
+  );
+}
+
+const TR = { aldia: 'al día', t1: '30-60', t2: '60-90', t3: '+90', cubierta: 'cubierta', credito: 'a cuenta' };
+const k = (c) => `${c.tipo} ${c.numero}`;
+
+function AlertaItem({ r, p, t, ic, sel, prev }) {
+  const [abierto, setAbierto] = useState(false);
+  const [det, setDet] = useState(null);
+
+  async function abrir() {
+    const n = !abierto;
+    setAbierto(n);
+    if (n && !det && sel && prev) {
+      const [a, b] = await Promise.all([
+        supabase.from('informe_comprobantes').select('*').eq('informe_id', sel.id).eq('codigo', r.codigo),
+        supabase.from('informe_comprobantes').select('*').eq('informe_id', prev.id).eq('codigo', r.codigo),
+      ]);
+      setDet({ cur: a.data || [], ant: b.data || [] });
+    }
+  }
+
+  // diferencias por tramo (siempre disponibles)
+  const tramos = [['Saldo total', 'saldo_total'], ['30-60', 't30_60'], ['60-90', 't60_90'], ['+90', 't90_mas']].map(([l, c]) => {
+    const a = p ? +p[c] : 0, b = +r[c];
+    return [l, a, b, b - a];
+  });
+
+  // explicacion comprobante por comprobante
+  let ev = null;
+  if (det && det.cur.length && det.ant.length) {
+    const ant = new Map(det.ant.map((c) => [k(c), c]));
+    const cur = new Map(det.cur.map((c) => [k(c), c]));
+    ev = [];
+    det.cur.filter((c) => c.tramo === 'credito' && !ant.has(k(c))).forEach((c) =>
+      ev.push(['ok', `Pago / NC nuevo ${k(c)} por ${F(-c.importe)}`]));
+    det.ant.filter((c) => c.tramo !== 'credito' && c.pendiente > 0 && !(cur.get(k(c))?.pendiente > 0)).forEach((c) =>
+      ev.push(['ok', `Se canceló ${k(c)} (${F(c.pendiente)}, estaba en ${TR[c.tramo]})`]));
+    det.cur.filter((c) => ['t1', 't2', 't3'].includes(c.tramo)).forEach((c) => {
+      const a = ant.get(k(c));
+      if (!a || a.tramo === 'aldia' || a.tramo === 'cubierta') ev.push(['bad', `${k(c)} cumplió ${c.dias} días y pasó a vencida ${TR[c.tramo]} (${F(c.pendiente)})`]);
+      else if (a.tramo !== c.tramo) ev.push(['bad', `${k(c)} pasó de ${TR[a.tramo]} a ${TR[c.tramo]} (${F(c.pendiente)}, ${c.dias} días)`]);
+    });
+    const nuevas = det.cur.filter((c) => c.tramo === 'aldia' && !ant.has(k(c)));
+    if (nuevas.length) ev.push(['eq', `${nuevas.length} factura${nuevas.length > 1 ? 's' : ''} nueva${nuevas.length > 1 ? 's' : ''} al día por ${F(nuevas.reduce((a, c) => a + +c.pendiente, 0))}`]);
+  }
+
+  return (
+    <li style={{ display: 'block', cursor: 'pointer' }} onClick={abrir}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="dot" style={{ background: ic[1] }}>{ic[0]}</div>
+        <div className="t"><div><b>{r.razon_social}</b></div><small>{r.vendedor}</small></div>{t}
+        <span className="muted" style={{ fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
+      </div>
+      {abierto && (
+        <div onClick={(e) => e.stopPropagation()} style={{ margin: '10px 0 4px 40px', padding: 12, borderRadius: 12, background: 'var(--soft)', cursor: 'default' }}>
+          <table style={{ fontSize: 12 }}>
+            <thead><tr><th></th><th className="n">Semana anterior</th><th className="n">Esta semana</th><th className="n">Diferencia</th></tr></thead>
+            <tbody>
+              {tramos.map(([l, a, b, d]) => (
+                <tr key={l}><td>{l}</td><td className="n">{F(a)}</td><td className="n">{F(b)}</td>
+                  <td className="n" style={{ fontWeight: 700, color: Math.abs(d) < 1 ? 'var(--ink3)' : d > 0 ? 'var(--bad)' : 'var(--ok)' }}>{Math.abs(d) < 1 ? '=' : (d > 0 ? '+' : '−') + F(Math.abs(d)).slice(2)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 10, fontSize: 12.5 }}>
+            {!det && <span className="muted">Buscando comprobantes…</span>}
+            {det && !ev && <span className="muted">La semana anterior no tiene el detalle de comprobantes guardado. Desde la próxima carga vas a ver acá factura por factura qué cambió.</span>}
+            {ev && ev.length === 0 && <span className="muted">Sin movimientos de comprobantes: el cambio es solo por el paso del tiempo.</span>}
+            {ev && ev.map(([tp, txt], i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, padding: '3px 0' }}>
+                <span style={{ color: tp === 'ok' ? 'var(--ok)' : tp === 'bad' ? 'var(--bad)' : 'var(--ink3)', fontWeight: 700 }}>{tp === 'ok' ? '▼' : tp === 'bad' ? '▲' : '•'}</span>{txt}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
